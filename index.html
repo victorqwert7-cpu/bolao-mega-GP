@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bolão da Firma</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        .bola { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold; font-size: 0.8rem; }
+        .bola-acerto { background-color: #10b981; color: white; } /* Verde */
+        .bola-erro { background-color: #e5e7eb; color: #374151; } /* Cinza */
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <header class="bg-blue-800 text-white p-6 shadow-md text-center">
+        <h1 class="text-2xl font-bold uppercase tracking-wider">🏆 Bolão da Mega</h1>
+        <div id="contador" class="mt-2 text-yellow-300 font-mono text-lg font-bold">
+            Carregando sorteio...
+        </div>
+    </header>
+
+    <div class="max-w-md mx-auto p-4 sticky top-0 z-10 bg-gray-100">
+        <input type="text" id="busca" placeholder="🔍 Buscar participante..." 
+            class="w-full p-3 rounded-lg border border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            onkeyup="filtrarLista()">
+    </div>
+
+    <div id="lista-jogos" class="max-w-md mx-auto p-4 space-y-4">
+        <p class="text-center text-gray-500">Carregando dados da planilha...</p>
+    </div>
+
+    <script>
+        // ================= CONFIGURAÇÃO =================
+        // COLE O LINK DO CSV DO GOOGLE SHEETS AQUI EMBAIXO:
+        const SHEET_URL = https://docs.google.com/spreadsheets/d/e/2PACX-1vRZZOKsOLYeMY4ELikrl-5Hnd_bYBnBoxZT_9J3kXXbmgz3-toSFIEG6JfYYMuzClbVrmYR8oG1REyE/pub?gid=1229596505&single=true&output=csv;
+
+        // DATA DO PRÓXIMO SORTEIO (2025, 11, 31, 21)
+        // Ex: 2025, 11 (Dezembro é 11 pois começa em 0), 20, as 20h
+        const DATA_SORTEIO = new Date(2025, 11, 31, 21, 0, 0); 
+        // ================================================
+
+        // Função para carregar a planilha
+        function carregarDados() {
+            Papa.parse(SHEET_URL, {
+                download: true,
+                header: true, // Usa a primeira linha como nome das colunas
+                complete: function(results) {
+                    renderizarCards(results.data);
+                }
+            });
+        }
+
+        // Função para desenhar os cartões na tela
+        function renderizarCards(dados) {
+            const container = document.getElementById('lista-jogos');
+            container.innerHTML = ''; // Limpa loading
+
+            // Ordenar por Acertos (Maior para menor)
+            dados.sort((a, b) => b.Acertos - a.Acertos);
+
+            dados.forEach(jogo => {
+                // Pula linhas vazias
+                if(!jogo.Nome) return;
+
+                // Monta o HTML de cada cartão
+                // Ajuste os nomes "jogo.Nome", "jogo.Acertos" conforme o cabeçalho da sua planilha
+                const html = `
+                    <div class="card bg-white p-4 rounded-xl shadow-md border-l-4 ${corBorda(jogo.Acertos)} flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-bold text-lg text-gray-800">${jogo.Nome}</h3>
+                            <span class="text-xs font-bold px-2 py-1 rounded bg-gray-200 text-gray-700">Concurso: ${jogo.Concurso}</span>
+                        </div>
+                        
+                        <div class="flex justify-between items-center mt-2">
+                            <div class="flex gap-1">
+                                ${bolinha(jogo['Dez1'])} ${bolinha(jogo['Dez2'])} ${bolinha(jogo['Dez3'])}
+                                ${bolinha(jogo['Dez4'])} ${bolinha(jogo['Dez5'])} ${bolinha(jogo['Dez6'])}
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-sm text-gray-500">Acertos</span>
+                                <span class="text-2xl font-bold ${corTexto(jogo.Acertos)}">${jogo.Acertos || 0}</span>
+                            </div>
+                        </div>
+                         <div class="text-center text-sm font-bold text-blue-600 mt-1">${jogo.Status || ''}</div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+        }
+
+        // Helpers Visuais
+        function bolinha(numero) {
+            if(!numero) return '';
+            return `<div class="bola bola-erro">${numero}</div>`;
+        }
+        
+        function corBorda(acertos) {
+            if(acertos == 6) return 'border-green-500';
+            if(acertos == 5) return 'border-blue-500';
+            if(acertos == 4) return 'border-yellow-500';
+            return 'border-gray-300';
+        }
+
+        function corTexto(acertos) {
+            if(acertos >= 4) return 'text-green-600';
+            return 'text-gray-800';
+        }
+
+        function filtrarLista() {
+            const termo = document.getElementById('busca').value.toLowerCase();
+            const cards = document.querySelectorAll('.card');
+            
+            cards.forEach(card => {
+                const nome = card.querySelector('h3').innerText.toLowerCase();
+                if(nome.includes(termo)) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // Lógica do Contador Regressivo
+        function atualizarContador() {
+            const agora = new Date();
+            const diferenca = DATA_SORTEIO - agora;
+
+            if (diferenca < 0) {
+                document.getElementById('contador').innerText = "O Sorteio já ocorreu!";
+                return;
+            }
+
+            const dias = Math.floor(diferenca / (1000 * 60 * 60 * 24));
+            const horas = Math.floor((diferenca % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            
+            document.getElementById('contador').innerText = `Faltam ${dias} dias e ${horas}h para o sorteio!`;
+        }
+
+        // Iniciar
+        carregarDados();
+        setInterval(atualizarContador, 60000); // Atualiza min a min
+        atualizarContador();
+    </script>
+</body>
+</html>
